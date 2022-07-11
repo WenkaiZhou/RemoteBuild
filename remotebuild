@@ -1,0 +1,202 @@
+#!/bin/bash
+
+set -e
+
+START_TIME="$(date +%s)"
+
+PROJECT_DIR="$(pwd)"
+PROJECT_DIR_NAME="$( basename "$PROJECT_DIR" )"
+PROJECT_DIR_ON_REMOTE_MACHINE="~/remotebuild/$PROJECT_DIR_NAME"
+
+CONFIG_FILE="$PROJECT_DIR/.remotebuild/config.yaml"
+
+REMOTE_COMMAND="$*"
+REMOTE_COMMAND_SUCCESSFUL="false"
+
+if [ -z "$REMOTE_COMMAND" ]; then
+	echo "Please pass remote command."
+	exit 1
+fi
+
+function parseYaml() {
+    local yaml_file=$1
+    local prefix=$2
+    local s
+    local w
+    local fs
+    local last_indent=0
+
+    s='[[:space:]]*'
+    w='[a-zA-Z0-9_.-]*'
+    fs="$(echo @|tr @ '\034')"
+    (
+        sed -ne '/^--/s|--||g; s|\"|\\\"|g; s/\s*$//g;' \
+            -e "/#.*[\"\']/!s| #.*||g; /^#/s|#.*||g;" \
+            -e  "s|^\($s\)\($w\)$s:$s\"\(.*\)\"$s\$|\1$fs\2$fs\3|p" \
+            -e  "s|^\($s\)\($w\)$s[:-]$s\(.*\)$s\$|\1$fs\2$fs\3|p" |
+
+        awk -F"$fs" '{
+	            indent = length($1)/2;
+	            if (length($2) == 0) {
+	            	conj[indent]="+";
+	            } else {
+	            	conj[indent]="";
+	            }
+	            vname[indent] = $2;
+	            for (i in vname) {
+	            	if (i > indent) {
+	            		delete vname[i];
+	            	}
+	            }
+	            if (length($3) > 0) {
+	            	last_vname=vname[0];
+	                vn="";
+	                for (i=0; i<indent; i++) {
+	                	if (last_vname != "") {
+	                		vn=(vn)(vname[i])("_");
+	                		last_vname=vname[i+1];
+	                	}
+	                }
+	                # gsub("false","0",$3)
+	                # gsub("true","1",$3)
+	                name = "'"$prefix"'"(vn)$2(conj[indent-1]);
+	                value = $3;
+	                gsub("-","_",name)
+	                printf("%s=(\"%s\")\n", name, value);
+	                # printf("%s%s%s%s=%s\n", "'"$prefix"'",vn, $2, conj[indent-1],$3);
+	            }
+            }' |
+
+        sed -e 's/_=/+=/g' \
+            -e '/\..*=/s|\.|_|' \
+            -e '/\-.*=/s|\-|_|'
+
+    ) < "$yaml_file"
+
+}
+
+function parseConfigParameters() {
+    eval "$(parseYaml "$CONFIG_FILE")"
+}
+
+function formatTime {
+	local time=$1
+
+	local hours=$((time / 3600))
+	local minutes=$(((time % 3600) / 60))
+	local seconds=$((time % 60))
+
+	if [ "$hours" -eq "1" ]; then HOURS_LABEL="hour"; else HOURS_LABEL="hours"; fi
+	if [ "$minutes" -eq "1" ]; then MINUTES_LABEL="minute"; else MINUTES_LABEL="minutes"; fi
+	if [ "$seconds" -eq "1" ]; then SECONDS_LABEL="second"; else SECONDS_LABEL="seconds"; fi
+
+	(( hours > 0 )) && printf "%d $HOURS_LABEL " ${hours}
+	(( minutes > 0 )) && printf "%d $MINUTES_LABEL " ${minutes}
+	(( seconds >= 0 )) && printf "%d $SECONDS_LABEL" ${seconds}
+}
+
+function syncBeforeRemoteCommand {
+	echo "Sync local → remote machine..."
+	startTime="$(date +%s)"
+
+	COMMAND="rsync --archive --delete --rsync-path=\"mkdir -p \"$PROJECT_DIR_ON_REMOTE_MACHINE\" && rsync\" --compress-level=$rsync_compress_level "
+
+	if [ -n "$rsync_ignore_both" ]; then
+    for i in ${!rsync_ignore_both[@]} ; do
+      COMMAND+="--exclude=${rsync_ignore_both[$i]} "
+    done
+	fi
+
+	if [ -n "$rsync_ignore_push" ]; then
+	  for i in ${!rsync_ignore_push[@]} ; do
+		  COMMAND+="--exclude=${rsync_ignore_push[$i]} "
+	  done
+	fi
+
+  if [ "$rsync_verbose" = true ]; then
+        COMMAND+="--verbose "
+  fi
+
+	COMMAND+="--rsh ssh ./ $machine_host:'$PROJECT_DIR_ON_REMOTE_MACHINE'"
+
+	eval "$COMMAND"
+
+	endTime="$(date +%s)"
+	echo "Sync done: took $(formatTime $((endTime-startTime)))."
+	echo ""
+}
+
+function executeRemoteCommand {
+	echo "Executing command on remote machine…"
+	echo ""
+	startTime="$(date +%s)"
+
+	set +e
+	if ssh "$machine_host" "echo 'set -e && export BASH_ENV=/etc/profile && cd '$PROJECT_DIR_ON_REMOTE_MACHINE' && echo \"$REMOTE_COMMAND\" && echo "" && $REMOTE_COMMAND' | bash" ; then
+		REMOTE_COMMAND_SUCCESSFUL="true"
+	fi
+	set -e
+
+	endTime="$(date +%s)"
+	echo ""
+
+	duration="$((endTime-startTime))"
+
+	if [ "$REMOTE_COMMAND_SUCCESSFUL" == "true" ]; then
+		echo "Execution done: took $(formatTime $duration)."
+	else
+		echo "Execution failed: took $(formatTime $duration)."
+	fi
+
+	echo ""
+}
+
+function syncAfterRemoteCommand {
+	echo "Sync remote → local machine…"
+	startTime="$(date +%s)"
+
+	COMMAND="rsync --archive --delete --compress-level=$rsync_compress_level "
+
+	if [ -n "$rsync_ignore_both" ]; then
+	  for i in ${!rsync_ignore_both[@]} ; do
+		  COMMAND+="--exclude=${rsync_ignore_both[$i]} "
+	  done
+	fi
+
+	if [ -n "$rsync_ignore_pull" ]; then
+	  for i in ${!rsync_ignore_pull[@]} ; do
+		  COMMAND+="--exclude=${rsync_ignore_pull[$i]} "
+	  done
+	fi
+
+  if [ "$rsync_verbose" = true ]; then
+        COMMAND+="--verbose "
+  fi
+
+	COMMAND+="--rsh ssh $machine_host:'$PROJECT_DIR_ON_REMOTE_MACHINE'/ ./"
+	eval "$COMMAND"
+
+	endTime="$(date +%s)"
+	echo "Sync done: took $(formatTime $((endTime-startTime)))."
+}
+
+pushd "$PROJECT_DIR" > /dev/null
+
+parseConfigParameters
+syncBeforeRemoteCommand
+executeRemoteCommand
+syncAfterRemoteCommand
+
+popd > /dev/null
+
+FINISH_TIME="$(date +%s)"
+echo ""
+
+DURATION="$((FINISH_TIME-START_TIME))"
+
+if [ "$REMOTE_COMMAND_SUCCESSFUL" == "true" ]; then
+	echo "Success: took $(formatTime $DURATION)."
+else
+	echo "Failure: took $(formatTime $DURATION)."
+	exit 1
+fi
