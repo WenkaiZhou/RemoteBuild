@@ -1,7 +1,7 @@
 # 远程编译机配置
 machine:
   # 可以是IP、域名、甚至API返回的值
-#  host: `curl -s http://muzhi-android.bcc-bdbl.baidu.com:8045/ip`
+#  host: `curl -s http://google.com:8045/ip`
   host: 10.211.55.12
 
 rsync:
