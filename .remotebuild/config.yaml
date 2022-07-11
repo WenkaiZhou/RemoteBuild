@@ -1,1 +1,26 @@
+# 远程编译机配置
+machine:
+  # 可以是IP、域名、甚至API返回的值
+#  host: `curl -s http://muzhi-android.bcc-bdbl.baidu.com:8045/ip`
+  host: 10.211.55.12
 
+rsync:
+  # 传输压缩等级配置
+  compress_level: 1
+  # 详细输出模式
+  verbose: true
+  # 同步忽略文件配置
+  ignore:
+    # 双向忽略配置
+    both:
+      - ".git"
+      - ".idea"
+      - ".gradle"
+      - "*/.gradle"
+    # 本地同步远程忽略配置
+    push:
+      - "/build"
+      - "*/build"
+    # 远程同步本地忽略配置
+    pull:
+      - "*/src"
