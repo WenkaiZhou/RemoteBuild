@@ -9,6 +9,7 @@ PROJECT_DIR_NAME="$( basename "$PROJECT_DIR" )"
 PROJECT_DIR_ON_REMOTE_MACHINE="~/remotebuild/$PROJECT_DIR_NAME"
 
 CONFIG_FILE="$PROJECT_DIR/.remotebuild/config.yaml"
+CONFIG_PARSER_SCRIPT="$PROJECT_DIR/.remotebuild/yaml_parser"
 
 REMOTE_COMMAND="$*"
 REMOTE_COMMAND_SUCCESSFUL="false"
@@ -18,65 +19,8 @@ if [ -z "$REMOTE_COMMAND" ]; then
 	exit 1
 fi
 
-function parseYaml() {
-    local yaml_file=$1
-    local prefix=$2
-    local s
-    local w
-    local fs
-    local last_indent=0
-
-    s='[[:space:]]*'
-    w='[a-zA-Z0-9_.-]*'
-    fs="$(echo @|tr @ '\034')"
-    (
-        sed -ne '/^--/s|--||g; s|\"|\\\"|g; s/\s*$//g;' \
-            -e "/#.*[\"\']/!s| #.*||g; /^#/s|#.*||g;" \
-            -e  "s|^\($s\)\($w\)$s:$s\"\(.*\)\"$s\$|\1$fs\2$fs\3|p" \
-            -e  "s|^\($s\)\($w\)$s[:-]$s\(.*\)$s\$|\1$fs\2$fs\3|p" |
-
-        awk -F"$fs" '{
-	            indent = length($1)/2;
-	            if (length($2) == 0) {
-	            	conj[indent]="+";
-	            } else {
-	            	conj[indent]="";
-	            }
-	            vname[indent] = $2;
-	            for (i in vname) {
-	            	if (i > indent) {
-	            		delete vname[i];
-	            	}
-	            }
-	            if (length($3) > 0) {
-	            	last_vname=vname[0];
-	                vn="";
-	                for (i=0; i<indent; i++) {
-	                	if (last_vname != "") {
-	                		vn=(vn)(vname[i])("_");
-	                		last_vname=vname[i+1];
-	                	}
-	                }
-	                # gsub("false","0",$3)
-	                # gsub("true","1",$3)
-	                name = "'"$prefix"'"(vn)$2(conj[indent-1]);
-	                value = $3;
-	                gsub("-","_",name)
-	                printf("%s=(\"%s\")\n", name, value);
-	                # printf("%s%s%s%s=%s\n", "'"$prefix"'",vn, $2, conj[indent-1],$3);
-	            }
-            }' |
-
-        sed -e 's/_=/+=/g' \
-            -e '/\..*=/s|\.|_|' \
-            -e '/\-.*=/s|\-|_|'
-
-    ) < "$yaml_file"
-
-}
-
 function parseConfigParameters() {
-    eval "$(parseYaml "$CONFIG_FILE")"
+    source $CONFIG_PARSER_SCRIPT "$CONFIG_FILE"
 }
 
 function formatTime {

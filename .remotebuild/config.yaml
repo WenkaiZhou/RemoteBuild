@@ -8,7 +8,7 @@ rsync:
   # 传输压缩等级配置
   compress_level: 1
   # 详细输出模式
-  verbose: true
+  verbose: false
   # 同步忽略文件配置
   ignore:
     # 双向忽略配置
