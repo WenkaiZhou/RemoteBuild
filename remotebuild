@@ -5,142 +5,142 @@ set -e
 START_TIME="$(date +%s)"
 
 PROJECT_DIR="$(pwd)"
-PROJECT_DIR_NAME="$( basename "$PROJECT_DIR" )"
-PROJECT_DIR_ON_REMOTE_MACHINE="~/remotebuild/$PROJECT_DIR_NAME"
+PROJECT_DIR_NAME="$(basename "$PROJECT_DIR")"
+PROJECT_DIR_ON_REMOTE_MACHINE="~/remotebuild/${PROJECT_DIR_NAME}"
 
-CONFIG_FILE="$PROJECT_DIR/.remotebuild/config.yaml"
+CONFIG_FILE="${PROJECT_DIR}/.remotebuild/config.yaml"
 CONFIG_PARSER_SCRIPT="$PROJECT_DIR/.remotebuild/yaml_parser"
 
 REMOTE_COMMAND="$*"
 REMOTE_COMMAND_SUCCESSFUL="false"
 
 if [ -z "$REMOTE_COMMAND" ]; then
-	echo "Please pass remote command."
-	exit 1
+  echo "Please pass remote command."
+  exit 1
 fi
 
-function parseConfigParameters() {
-    source $CONFIG_PARSER_SCRIPT "$CONFIG_FILE"
+function parse_config_parameters() {
+  source $CONFIG_PARSER_SCRIPT "$CONFIG_FILE"
 }
 
-function formatTime {
-	local time=$1
+function format_time() {
+  local time=$1
 
-	local hours=$((time / 3600))
-	local minutes=$(((time % 3600) / 60))
-	local seconds=$((time % 60))
+  local hours=$((time / 3600))
+  local minutes=$(((time % 3600) / 60))
+  local seconds=$((time % 60))
 
-	if [ "$hours" -eq "1" ]; then HOURS_LABEL="hour"; else HOURS_LABEL="hours"; fi
-	if [ "$minutes" -eq "1" ]; then MINUTES_LABEL="minute"; else MINUTES_LABEL="minutes"; fi
-	if [ "$seconds" -eq "1" ]; then SECONDS_LABEL="second"; else SECONDS_LABEL="seconds"; fi
+  if [ "$hours" -eq "1" ]; then HOURS_LABEL="hour"; else HOURS_LABEL="hours"; fi
+  if [ "$minutes" -eq "1" ]; then MINUTES_LABEL="minute"; else MINUTES_LABEL="minutes"; fi
+  if [ "$seconds" -eq "1" ]; then SECONDS_LABEL="second"; else SECONDS_LABEL="seconds"; fi
 
-	(( hours > 0 )) && printf "%d $HOURS_LABEL " ${hours}
-	(( minutes > 0 )) && printf "%d $MINUTES_LABEL " ${minutes}
-	(( seconds >= 0 )) && printf "%d $SECONDS_LABEL" ${seconds}
+  ((hours > 0)) && printf "%d $HOURS_LABEL " ${hours}
+  ((minutes > 0)) && printf "%d $MINUTES_LABEL " ${minutes}
+  ((seconds >= 0)) && printf "%d $SECONDS_LABEL" ${seconds}
 }
 
-function syncBeforeRemoteCommand {
-	echo "Sync local → remote machine..."
-	startTime="$(date +%s)"
+function sync_before_remote_command() {
+  echo "Sync local → remote machine..."
+  startTime="$(date +%s)"
 
-	COMMAND="rsync --archive --delete --rsync-path=\"mkdir -p \"$PROJECT_DIR_ON_REMOTE_MACHINE\" && rsync\" --compress-level=$rsync_compress_level "
+  COMMAND="rsync --archive --delete --rsync-path=\"mkdir -p \"$PROJECT_DIR_ON_REMOTE_MACHINE\" && rsync\" --compress-level=$rsync_compress_level "
 
-	if [ -n "$rsync_ignore_both" ]; then
-    for i in ${!rsync_ignore_both[@]} ; do
+  if [ -n "$rsync_ignore_both" ]; then
+    for i in ${!rsync_ignore_both[@]}; do
       COMMAND+="--exclude=${rsync_ignore_both[$i]} "
     done
-	fi
-
-	if [ -n "$rsync_ignore_push" ]; then
-	  for i in ${!rsync_ignore_push[@]} ; do
-		  COMMAND+="--exclude=${rsync_ignore_push[$i]} "
-	  done
-	fi
-
-  if [ "$rsync_verbose" = true ]; then
-        COMMAND+="--verbose "
   fi
 
-	COMMAND+="--rsh ssh ./ $machine_host:'$PROJECT_DIR_ON_REMOTE_MACHINE'"
-
-	eval "$COMMAND"
-
-	endTime="$(date +%s)"
-	echo "Sync done: took $(formatTime $((endTime-startTime)))."
-	echo ""
-}
-
-function executeRemoteCommand {
-	echo "Executing command on remote machine…"
-	echo ""
-	startTime="$(date +%s)"
-
-	set +e
-	if ssh "$machine_host" "echo 'set -e && export BASH_ENV=/etc/profile && cd '$PROJECT_DIR_ON_REMOTE_MACHINE' && echo \"$REMOTE_COMMAND\" && echo "" && $REMOTE_COMMAND' | bash" ; then
-		REMOTE_COMMAND_SUCCESSFUL="true"
-	fi
-	set -e
-
-	endTime="$(date +%s)"
-	echo ""
-
-	duration="$((endTime-startTime))"
-
-	if [ "$REMOTE_COMMAND_SUCCESSFUL" == "true" ]; then
-		echo "Execution done: took $(formatTime $duration)."
-	else
-		echo "Execution failed: took $(formatTime $duration)."
-	fi
-
-	echo ""
-}
-
-function syncAfterRemoteCommand {
-	echo "Sync remote → local machine…"
-	startTime="$(date +%s)"
-
-	COMMAND="rsync --archive --delete --compress-level=$rsync_compress_level "
-
-	if [ -n "$rsync_ignore_both" ]; then
-	  for i in ${!rsync_ignore_both[@]} ; do
-		  COMMAND+="--exclude=${rsync_ignore_both[$i]} "
-	  done
-	fi
-
-	if [ -n "$rsync_ignore_pull" ]; then
-	  for i in ${!rsync_ignore_pull[@]} ; do
-		  COMMAND+="--exclude=${rsync_ignore_pull[$i]} "
-	  done
-	fi
-
-  if [ "$rsync_verbose" = true ]; then
-        COMMAND+="--verbose "
+  if [ -n "$rsync_ignore_push" ]; then
+    for i in ${!rsync_ignore_push[@]}; do
+      COMMAND+="--exclude=${rsync_ignore_push[$i]} "
+    done
   fi
 
-	COMMAND+="--rsh ssh $machine_host:'$PROJECT_DIR_ON_REMOTE_MACHINE'/ ./"
-	eval "$COMMAND"
+  if [ "$rsync_verbose" = true ]; then
+    COMMAND+="--verbose "
+  fi
 
-	endTime="$(date +%s)"
-	echo "Sync done: took $(formatTime $((endTime-startTime)))."
+  COMMAND+="--rsh ssh ./ $machine_host:'$PROJECT_DIR_ON_REMOTE_MACHINE'"
+
+  eval "$COMMAND"
+
+  endTime="$(date +%s)"
+  echo "Sync done: took $(format_time $((endTime - startTime)))."
+  echo ""
 }
 
-pushd "$PROJECT_DIR" > /dev/null
+function execute_remote_command() {
+  echo "Executing command on remote machine…"
+  echo ""
+  startTime="$(date +%s)"
 
-parseConfigParameters
-syncBeforeRemoteCommand
-executeRemoteCommand
-syncAfterRemoteCommand
+  set +e
+  if ssh "$machine_host" "echo 'set -e && export BASH_ENV=/etc/profile && cd '$PROJECT_DIR_ON_REMOTE_MACHINE' && echo \"$REMOTE_COMMAND\" && echo "" && $REMOTE_COMMAND' | bash"; then
+    REMOTE_COMMAND_SUCCESSFUL="true"
+  fi
+  set -e
 
-popd > /dev/null
+  endTime="$(date +%s)"
+  echo ""
+
+  duration="$((endTime - startTime))"
+
+  if [ "$REMOTE_COMMAND_SUCCESSFUL" == "true" ]; then
+    echo "Execution done: took $(format_time $duration)."
+  else
+    echo "Execution failed: took $(format_time $duration)."
+  fi
+
+  echo ""
+}
+
+function sync_after_remote_command() {
+  echo "Sync remote → local machine…"
+  startTime="$(date +%s)"
+
+  COMMAND="rsync --archive --delete --compress-level=$rsync_compress_level "
+
+  if [ -n "$rsync_ignore_both" ]; then
+    for i in ${!rsync_ignore_both[@]}; do
+      COMMAND+="--exclude=${rsync_ignore_both[$i]} "
+    done
+  fi
+
+  if [ -n "$rsync_ignore_pull" ]; then
+    for i in ${!rsync_ignore_pull[@]}; do
+      COMMAND+="--exclude=${rsync_ignore_pull[$i]} "
+    done
+  fi
+
+  if [ "$rsync_verbose" = true ]; then
+    COMMAND+="--verbose "
+  fi
+
+  COMMAND+="--rsh ssh $machine_host:'$PROJECT_DIR_ON_REMOTE_MACHINE'/ ./"
+  eval "$COMMAND"
+
+  endTime="$(date +%s)"
+  echo "Sync done: took $(format_time $((endTime - startTime)))."
+}
+
+pushd "$PROJECT_DIR" >/dev/null
+
+parse_config_parameters
+sync_before_remote_command
+execute_remote_command
+sync_after_remote_command
+
+popd >/dev/null
 
 FINISH_TIME="$(date +%s)"
 echo ""
 
-DURATION="$((FINISH_TIME-START_TIME))"
+DURATION="$((FINISH_TIME - START_TIME))"
 
 if [ "$REMOTE_COMMAND_SUCCESSFUL" == "true" ]; then
-	echo "Success: took $(formatTime $DURATION)."
+  echo "Success: took $(format_time $DURATION)."
 else
-	echo "Failure: took $(formatTime $DURATION)."
-	exit 1
+  echo "Failure: took $(format_time $DURATION)."
+  exit 1
 fi
