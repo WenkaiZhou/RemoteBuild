@@ -6,13 +6,17 @@ START_TIME="$(date +%s)"
 
 PROJECT_DIR="$(pwd)"
 PROJECT_DIR_NAME="$(basename "$PROJECT_DIR")"
-PROJECT_DIR_ON_REMOTE_MACHINE="~/remotebuild/${PROJECT_DIR_NAME}"
+WORK_DIR_ON_REMOTE_MACHINE="~/remotebuild"
+PROJECT_DIR_ON_REMOTE_MACHINE="${WORK_DIR_ON_REMOTE_MACHINE}/${PROJECT_DIR_NAME}"
+LOG_FILE_ON_REMOTE_MACHINE="${WORK_DIR_ON_REMOTE_MACHINE}/build.log"
 
 CONFIG_FILE="${PROJECT_DIR}/.remotebuild/config.yaml"
 CONFIG_PARSER_SCRIPT="$PROJECT_DIR/.remotebuild/yaml_parser"
 
 REMOTE_COMMAND="$*"
 REMOTE_COMMAND_SUCCESSFUL="false"
+
+BUILD_LOG=$(date '+%Y-%m-%d %H:%M:%S')
 
 if [ -z "$REMOTE_COMMAND" ]; then
   echo "Please pass remote command."
@@ -66,8 +70,12 @@ function sync_before_remote_command() {
   eval "$COMMAND"
 
   endTime="$(date +%s)"
-  echo "Sync done: took $(format_time $((endTime - startTime)))."
+  duration="$((endTime - startTime))"
+  echo "Sync done: took $(format_time $duration)."
+
   echo ""
+
+  BUILD_LOG+=" $PROJECT_DIR_NAME $duration"
 }
 
 function execute_remote_command() {
@@ -82,11 +90,12 @@ function execute_remote_command() {
   set -e
 
   endTime="$(date +%s)"
-  echo ""
-
   duration="$((endTime - startTime))"
 
+  echo ""
+
   if [ "$REMOTE_COMMAND_SUCCESSFUL" == "true" ]; then
+    BUILD_LOG+=" $duration"
     echo "Execution done: took $(format_time $duration)."
   else
     echo "Execution failed: took $(format_time $duration)."
@@ -121,7 +130,10 @@ function sync_after_remote_command() {
   eval "$COMMAND"
 
   endTime="$(date +%s)"
-  echo "Sync done: took $(format_time $((endTime - startTime)))."
+  duration="$((endTime - startTime))"
+  echo "Sync done: took $(format_time $duration)."
+
+  BUILD_LOG+=" $duration"
 }
 
 pushd "$PROJECT_DIR" >/dev/null
@@ -139,6 +151,7 @@ echo ""
 DURATION="$((FINISH_TIME - START_TIME))"
 
 if [ "$REMOTE_COMMAND_SUCCESSFUL" == "true" ]; then
+  ssh "$machine_host" "echo 'echo '${BUILD_LOG}' >> '$LOG_FILE_ON_REMOTE_MACHINE'' | bash"
   echo "Success: took $(format_time $DURATION)."
 else
   echo "Failure: took $(format_time $DURATION)."
