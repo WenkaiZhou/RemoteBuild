@@ -14,5 +14,5 @@
 
 ## THANKS TO
 
-1. [yaml-parser](https://github.com/Minlison/yaml-parser/blob/master/parser_yaml.sh) yaml配置解析代码来源
-2. [mainframer](https://github.com/buildfoundation/mainframer) 同步脚本基于mainframer
+1. yaml配置解析代码来源 [yaml-parser](https://github.com/Minlison/yaml-parser/blob/master/parser_yaml.sh)
+2. 同步脚本基于 [mainframer](https://github.com/buildfoundation/mainframer)
