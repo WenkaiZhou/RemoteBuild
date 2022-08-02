@@ -8,14 +8,14 @@ PROJECT_DIR="$(pwd)"
 PROJECT_DIR_NAME="$(basename "$PROJECT_DIR")"
 WORK_DIR_ON_REMOTE_MACHINE="~/remotebuild"
 PROJECT_DIR_ON_REMOTE_MACHINE="${WORK_DIR_ON_REMOTE_MACHINE}/${PROJECT_DIR_NAME}"
-LOG_FILE_ON_REMOTE_MACHINE="${WORK_DIR_ON_REMOTE_MACHINE}/build.log"
 
 CONFIG_FILE="${PROJECT_DIR}/.remotebuild/config.yaml"
-CONFIG_PARSER_SCRIPT="$PROJECT_DIR/.remotebuild/yaml_parser"
+CONFIG_PARSER_SCRIPT="${PROJECT_DIR}/.remotebuild/yaml_parser"
 
 REMOTE_COMMAND="$*"
 REMOTE_COMMAND_SUCCESSFUL="false"
 
+LOG_FILE_ON_REMOTE_MACHINE="${WORK_DIR_ON_REMOTE_MACHINE}/build.log"
 BUILD_LOG=$(date '+%Y-%m-%d %H:%M:%S')
 
 if [ -z "$REMOTE_COMMAND" ]; then
@@ -24,7 +24,7 @@ if [ -z "$REMOTE_COMMAND" ]; then
 fi
 
 function parse_config_parameters() {
-  source $CONFIG_PARSER_SCRIPT "$CONFIG_FILE"
+  source $CONFIG_PARSER_SCRIPT "$CONFIG_FILE" true
 }
 
 function format_time() {
@@ -47,25 +47,25 @@ function sync_before_remote_command() {
   echo "Sync local → remote machine..."
   startTime="$(date +%s)"
 
-  COMMAND="rsync --archive --delete --rsync-path=\"mkdir -p \"$PROJECT_DIR_ON_REMOTE_MACHINE\" && rsync\" --compress-level=$rsync_compress_level "
+  COMMAND="rsync --archive --delete --rsync-path=\"mkdir -p \"$PROJECT_DIR_ON_REMOTE_MACHINE\" && rsync\" --compress-level=$RSYNC_COMPRESS_LEVEL "
 
-  if [ -n "$rsync_ignore_both" ]; then
-    for i in ${!rsync_ignore_both[@]}; do
-      COMMAND+="--exclude=${rsync_ignore_both[$i]} "
+  if [ -n "$RSYNC_IGNORE_BOTH" ]; then
+    for i in ${!RSYNC_IGNORE_BOTH[@]}; do
+      COMMAND+="--exclude=${RSYNC_IGNORE_BOTH[$i]} "
     done
   fi
 
-  if [ -n "$rsync_ignore_push" ]; then
-    for i in ${!rsync_ignore_push[@]}; do
-      COMMAND+="--exclude=${rsync_ignore_push[$i]} "
+  if [ -n "$RSYNC_IGNORE_PUSH" ]; then
+    for i in ${!RSYNC_IGNORE_PUSH[@]}; do
+      COMMAND+="--exclude=${RSYNC_IGNORE_PUSH[$i]} "
     done
   fi
 
-  if [ "$rsync_verbose" = true ]; then
+  if [ "$RSYNC_VERBOSE" = true ]; then
     COMMAND+="--verbose "
   fi
 
-  COMMAND+="--rsh ssh ./ $machine_host:'$PROJECT_DIR_ON_REMOTE_MACHINE'"
+  COMMAND+="--rsh ssh ./ $MACHINE_HOST:'$PROJECT_DIR_ON_REMOTE_MACHINE'"
 
   eval "$COMMAND"
 
@@ -84,7 +84,7 @@ function execute_remote_command() {
   startTime="$(date +%s)"
 
   set +e
-  if ssh "$machine_host" "echo 'set -e && export BASH_ENV=/etc/profile && cd '$PROJECT_DIR_ON_REMOTE_MACHINE' && echo \"$REMOTE_COMMAND\" && echo "" && $REMOTE_COMMAND' | bash"; then
+  if ssh "$MACHINE_HOST" "echo 'set -e && export BASH_ENV=/etc/profile && cd '$PROJECT_DIR_ON_REMOTE_MACHINE' && echo \"$REMOTE_COMMAND\" && echo "" && $REMOTE_COMMAND' | bash"; then
     REMOTE_COMMAND_SUCCESSFUL="true"
   fi
   set -e
@@ -108,25 +108,25 @@ function sync_after_remote_command() {
   echo "Sync remote → local machine…"
   startTime="$(date +%s)"
 
-  COMMAND="rsync --archive --delete --compress-level=$rsync_compress_level "
+  COMMAND="rsync --archive --delete --compress-level=$RSYNC_COMPRESS_LEVEL "
 
-  if [ -n "$rsync_ignore_both" ]; then
-    for i in ${!rsync_ignore_both[@]}; do
-      COMMAND+="--exclude=${rsync_ignore_both[$i]} "
+  if [ -n "$RSYNC_IGNORE_BOTH" ]; then
+    for i in ${!RSYNC_IGNORE_BOTH[@]}; do
+      COMMAND+="--exclude=${RSYNC_IGNORE_BOTH[$i]} "
     done
   fi
 
-  if [ -n "$rsync_ignore_pull" ]; then
-    for i in ${!rsync_ignore_pull[@]}; do
-      COMMAND+="--exclude=${rsync_ignore_pull[$i]} "
+  if [ -n "$RSYNC_IGNORE_PULL" ]; then
+    for i in ${!RSYNC_IGNORE_PULL[@]}; do
+      COMMAND+="--exclude=${RSYNC_IGNORE_PULL[$i]} "
     done
   fi
 
-  if [ "$rsync_verbose" = true ]; then
+  if [ "$RSYNC_VERBOSE" = true ]; then
     COMMAND+="--verbose "
   fi
 
-  COMMAND+="--rsh ssh $machine_host:'$PROJECT_DIR_ON_REMOTE_MACHINE'/ ./"
+  COMMAND+="--rsh ssh $MACHINE_HOST:'$PROJECT_DIR_ON_REMOTE_MACHINE'/ ./"
   eval "$COMMAND"
 
   endTime="$(date +%s)"
@@ -151,7 +151,7 @@ echo ""
 DURATION="$((FINISH_TIME - START_TIME))"
 
 if [ "$REMOTE_COMMAND_SUCCESSFUL" == "true" ]; then
-  ssh "$machine_host" "echo 'echo '${BUILD_LOG}' >> '$LOG_FILE_ON_REMOTE_MACHINE'' | bash"
+  ssh "$MACHINE_HOST" "echo 'echo '${BUILD_LOG}' >> '$LOG_FILE_ON_REMOTE_MACHINE'' | bash"
   echo "Success: took $(format_time $DURATION)."
 else
   echo "Failure: took $(format_time $DURATION)."
