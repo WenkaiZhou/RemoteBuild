@@ -1,5 +1,10 @@
 # RemoteBuild
 
+## 配置项目
+
+```Shell
+```
+
 ## 配置 `Android Studio`
 
 1. `Run` -> `Edit Configuration` -> `+`
@@ -14,5 +19,5 @@
 
 ## THANKS TO
 
-1. yaml配置解析代码来源 [yaml-parser](https://github.com/Minlison/yaml-parser/blob/master/parser_yaml.sh)
+1. yaml配置解析基于 [yaml-parser](https://github.com/Minlison/yaml-parser/blob/master/parser_yaml.sh)
 2. 同步脚本基于 [mainframer](https://github.com/buildfoundation/mainframer)

@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# download remotebuild script
+curl -s https://raw.githubusercontent.com/xuehuayous/RemoteBuild/main/remotebuild > remotebuild
+
+# download yaml parser script
+mkdir -p .remotebuild
+curl -s https://raw.githubusercontent.com/xuehuayous/RemoteBuild/main/.remotebuild/yaml_parser > .remotebuild/yaml_parser
+
+# download default config file
+if [ ! -f .remotebuild/config.yaml ]; then
+    curl -s https://raw.githubusercontent.com/xuehuayous/RemoteBuild/main/.remotebuild/config.yaml > .remotebuild/config.yaml
+fi
