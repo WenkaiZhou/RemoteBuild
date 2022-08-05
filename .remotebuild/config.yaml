@@ -4,6 +4,10 @@ machine:
 #  host: `curl -s http://google.com:8045/ip`
   host: 10.211.55.12
 
+# 其他依赖项目配置
+dependencies:
+#  - "../common-lib"
+
 rsync:
   # 传输压缩等级配置
   compress_level: 1

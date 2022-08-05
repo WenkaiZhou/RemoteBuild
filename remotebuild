@@ -23,10 +23,6 @@ if [ -z "$REMOTE_COMMAND" ]; then
   exit 1
 fi
 
-function parse_config_parameters() {
-  source $CONFIG_PARSER_SCRIPT "$CONFIG_FILE" true
-}
-
 function format_time() {
   local time=$1
 
@@ -43,11 +39,11 @@ function format_time() {
   ((seconds >= 0)) && printf "%d $SECONDS_LABEL" ${seconds}
 }
 
-function sync_before_remote_command() {
-  echo "Sync local → remote machine..."
-  startTime="$(date +%s)"
+function sync_push() {
+  local local_dir=$1
+  local remote_dir=$2
 
-  COMMAND="rsync --archive --delete --rsync-path=\"mkdir -p \"$PROJECT_DIR_ON_REMOTE_MACHINE\" && rsync\" --compress-level=$RSYNC_COMPRESS_LEVEL "
+  COMMAND="rsync --archive --delete --rsync-path=\"mkdir -p ${remote_dir} && rsync\" --compress-level=$RSYNC_COMPRESS_LEVEL "
 
   if [ -n "$RSYNC_IGNORE_BOTH" ]; then
     for i in ${!RSYNC_IGNORE_BOTH[@]}; do
@@ -65,9 +61,26 @@ function sync_before_remote_command() {
     COMMAND+="--verbose "
   fi
 
-  COMMAND+="--rsh ssh ./ $MACHINE_HOST:'$PROJECT_DIR_ON_REMOTE_MACHINE'"
+  COMMAND+="--rsh ssh $local_dir $MACHINE_HOST:$remote_dir"
 
   eval "$COMMAND"
+}
+
+function parse_config_parameters() {
+  source $CONFIG_PARSER_SCRIPT "$CONFIG_FILE" true
+}
+
+function sync_before_remote_command() {
+  echo "Sync local → remote machine..."
+  startTime="$(date +%s)"
+
+  sync_push "./" ${PROJECT_DIR_ON_REMOTE_MACHINE}
+
+  if [ -n "$DEPENDENCIES" ]; then
+    for i in ${!DEPENDENCIES[@]}; do
+      sync_push "${DEPENDENCIES[$i]}/" "${PROJECT_DIR_ON_REMOTE_MACHINE}/${DEPENDENCIES[$i]}"
+    done
+  fi
 
   endTime="$(date +%s)"
   duration="$((endTime - startTime))"
