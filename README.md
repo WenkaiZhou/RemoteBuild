@@ -3,6 +3,7 @@
 ## 配置项目
 
 ```Shell
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/xuehuayous/RemoteBuild/main/install)"
 ```
 
 ## 配置 `Android Studio`
