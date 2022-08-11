@@ -20,5 +20,5 @@
 
 ## THANKS TO
 
-1. yaml配置解析基于 [yaml-parser](https://github.com/Minlison/yaml-parser/blob/master/parser_yaml.sh)
+1. yaml解析基于 [yaml-parser](https://github.com/Minlison/yaml-parser/blob/master/parser_yaml.sh)
 2. 同步脚本基于 [mainframer](https://github.com/buildfoundation/mainframer)
