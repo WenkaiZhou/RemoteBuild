@@ -2,6 +2,7 @@
 
 # download remotebuild script
 curl -s https://raw.githubusercontent.com/xuehuayous/RemoteBuild/main/remotebuild > remotebuild
+chmod +x remotebuild
 
 # download yaml parser script
 mkdir -p .remotebuild
