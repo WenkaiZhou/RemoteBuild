@@ -28,3 +28,5 @@ rsync:
     # 远程同步本地忽略配置
     pull:
       - "*/src"
+      - "*/build/tmp"
+      - "*/build/intermediates/transforms"
