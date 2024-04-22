@@ -61,7 +61,7 @@ function sync_push() {
     COMMAND+="--verbose "
   fi
 
-  COMMAND+="--rsh ssh $local_dir $MACHINE_HOST:$remote_dir"
+  COMMAND+="--rsh \"ssh -p $MACHINE_PORT\" $local_dir $MACHINE_HOST:$remote_dir"
 
   eval "$COMMAND"
 }
@@ -97,7 +97,7 @@ function execute_remote_command() {
   startTime="$(date +%s)"
 
   set +e
-  if ssh "$MACHINE_HOST" "echo 'set -e && export BASH_ENV=/etc/profile && cd '$PROJECT_DIR_ON_REMOTE_MACHINE' && echo \"$REMOTE_COMMAND\" && echo "" && $REMOTE_COMMAND' | bash"; then
+  if ssh -p $MACHINE_PORT $MACHINE_HOST "echo 'set -e && export BASH_ENV=/etc/profile && cd '$PROJECT_DIR_ON_REMOTE_MACHINE' && echo \"$REMOTE_COMMAND\" && echo "" && $REMOTE_COMMAND' | bash"; then
     REMOTE_COMMAND_SUCCESSFUL="true"
   fi
   set -e
@@ -139,7 +139,7 @@ function sync_after_remote_command() {
     COMMAND+="--verbose "
   fi
 
-  COMMAND+="--rsh ssh $MACHINE_HOST:'$PROJECT_DIR_ON_REMOTE_MACHINE'/ ./"
+  COMMAND+="--rsh \"ssh -p $MACHINE_PORT\" $MACHINE_HOST:'$PROJECT_DIR_ON_REMOTE_MACHINE'/ ./"
   eval "$COMMAND"
 
   endTime="$(date +%s)"
@@ -164,7 +164,7 @@ echo ""
 DURATION="$((FINISH_TIME - START_TIME))"
 
 if [ "$REMOTE_COMMAND_SUCCESSFUL" == "true" ]; then
-  ssh "$MACHINE_HOST" "echo 'echo '${BUILD_LOG}' >> '$LOG_FILE_ON_REMOTE_MACHINE'' | bash"
+  ssh -p $MACHINE_PORT $MACHINE_HOST "echo 'echo '${BUILD_LOG}' >> '$LOG_FILE_ON_REMOTE_MACHINE'' | bash"
   echo "Success: took $(format_time $DURATION)."
 else
   echo "Failure: took $(format_time $DURATION)."

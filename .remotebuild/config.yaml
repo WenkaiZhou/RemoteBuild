@@ -3,6 +3,8 @@ machine:
   # 可以是IP、域名、甚至API返回的值
 #  host: `curl -s http://google.com:8045/ip`
   host: 10.211.55.12
+  # 端口号
+  port: 22
 
 # 其他依赖项目配置
 dependencies:
